@@ -1,160 +1,165 @@
 # Desktop in a Tab
 
-Mostra il tuo desktop Linux **dentro una scheda del browser**, così che l'estensione **Claude in Chrome** possa controllarlo con mouse e tastiera.
+[🇬🇧 English](README.md) · [🇮🇹 Italiano](README.it.md)
 
-L'estensione ufficiale di Claude in Chrome può agire solo sulle schede del browser: non vede il desktop e non può premere tasti fuori da Chrome. Questo progetto aggira il limite: il desktop viene trasmesso via VNC in una scheda (tramite [noVNC](https://github.com/novnc/noVNC)), e i clic e i tasti fatti nella scheda tornano al desktop vero. Per Claude in Chrome è una pagina web come un'altra.
+Show your Linux desktop **inside a browser tab**, so the **Claude in Chrome** extension can control it with mouse and keyboard.
 
-Non serve nessuna chiave API: si usa solo l'estensione.
+The official Claude in Chrome extension can only act on browser tabs: it can't see the desktop or press keys outside Chrome. This project works around that limit. The desktop is streamed over VNC into a tab (using [noVNC](https://github.com/novnc/noVNC)), and the clicks and keys you send in the tab go back to the real desktop. To Claude in Chrome it is just another web page.
+
+No API key needed: you only use the extension.
 
 ```
- Claude in Chrome ──► scheda con noVNC ──WebSocket──► server Node (questo progetto) ──TCP──► server VNC ──► il tuo desktop
-                      (localhost:6080)                 token + controllo host                (127.0.0.1:5900)
+ Claude in Chrome ──► tab with noVNC ──WebSocket──► Node server (this project) ──TCP──► VNC server ──► your desktop
+                      (localhost:6080)               token + Host check                 (127.0.0.1:5900)
 ```
 
-## Compatibilità
+## Compatibility
 
-**Testato solo su Arch Linux con Hyprland (Wayland).** Il resto è indicato in base a come funzionano i componenti, ma non l'ho provato.
+**Tested only on Arch Linux with Hyprland (Wayland).** Everything else is listed based on how the components work, but has not been tried.
 
-| Ambiente | Stato | Note |
+| Environment | Status | Notes |
 |---|---|---|
-| **Hyprland** | Testato | Funziona con `./run.sh` così com'è. |
-| **Sway, river, labwc, Wayfire** e altri compositor wlroots | Dovrebbe funzionare | `wayvnc` supporta i compositor wlroots. `run.sh` usa `hyprctl` per scegliere il monitor: fuori da Hyprland passa `OUTPUT=NOME_MONITOR` (vedi sotto) oppure avvia `wayvnc` a mano. |
-| **GNOME / KDE Plasma su Wayland** | Non con `wayvnc` | `wayvnc` non funziona su Mutter e KWin. Usa la condivisione schermo integrata del desktop (Remote Desktop / Krfb, che parlano RDP o VNC) con un server VNC, poi avvia solo il ponte (`node server.mjs`). Non verificato. |
-| **X11** (qualsiasi DE) | Dovrebbe funzionare con un altro server VNC | Usa `x11vnc` o `x0vncserver` (TigerVNC) su `127.0.0.1:5900` e poi `node server.mjs`. Non verificato. |
-| **macOS / Windows** | Non supportato | Gli script sono pensati per Linux. Il ponte web in sé è portabile, il resto no. |
+| **Hyprland** | Tested | Works with `./run.sh` as is. |
+| **Sway, river, labwc, Wayfire** and other wlroots compositors | Should work | `wayvnc` supports wlroots compositors. `run.sh` uses `hyprctl` to pick the monitor: outside Hyprland pass `OUTPUT=MONITOR_NAME` (see below) or start `wayvnc` by hand. |
+| **GNOME / KDE Plasma on Wayland** | Not with `wayvnc` | `wayvnc` does not work on Mutter or KWin. Use the desktop's built-in screen sharing (Remote Desktop / Krfb, which speak RDP or VNC) with a VNC server, then start only the bridge (`node server.mjs`). Not verified. |
+| **X11** (any DE) | Should work with a different VNC server | Use `x11vnc` or `x0vncserver` (TigerVNC) on `127.0.0.1:5900`, then `node server.mjs`. Not verified. |
+| **macOS / Windows** | Not supported | The scripts are meant for Linux. The web bridge itself is portable, the rest is not. |
 
-Il ponte (`server.mjs` + `index.html`) funziona con **qualsiasi server VNC** in ascolto su `127.0.0.1:5900` (porta modificabile con `VNC_PORT`). Solo `run.sh` dipende da Hyprland e `wayvnc`.
+The bridge (`server.mjs` + `index.html`) works with **any VNC server** listening on `127.0.0.1:5900` (port configurable with `VNC_PORT`). Only `run.sh` depends on Hyprland and `wayvnc`.
 
-## Requisiti
+## Requirements
 
-- Linux con un compositor Wayland wlroots (consigliato Hyprland) oppure X11 con un server VNC a tua scelta
-- [`wayvnc`](https://github.com/any1/wayvnc) (per Wayland wlroots)
-- Node.js 18 o superiore e npm
-- `python3` (usato da `run.sh` per leggere il monitor da `hyprctl`)
-- Chrome con l'estensione **Claude in Chrome**
+- Linux with a wlroots Wayland compositor (Hyprland recommended), or X11 with a VNC server of your choice
+- [`wayvnc`](https://github.com/any1/wayvnc) (for wlroots Wayland)
+- Node.js 18 or newer, and npm
+- `python3` (used by `run.sh` to read the monitor from `hyprctl`)
+- Chrome with the **Claude in Chrome** extension
 
-Su Arch:
+On Arch:
 
 ```bash
 sudo pacman -S wayvnc nodejs npm
 ```
 
-## Installazione
+## Installation
 
 ```bash
-git clone https://github.com/HubDevCode/claude-desktop-bridge waync
-cd waync/vnc-bridge   # oppure la cartella dove hai messo il progetto
+git clone https://github.com/HubDevCode/claude-desktop-bridge
+cd claude-desktop-bridge
 npm install
 chmod +x run.sh
 ```
 
-## Avvio
+## Running
 
 ```bash
 ./run.sh
 ```
 
-Lo script:
-1. sceglie il monitor che ha il focus (o quello indicato in `OUTPUT`),
-2. avvia `wayvnc` su `127.0.0.1:5900` con la tastiera italiana,
-3. avvia il ponte web e stampa un indirizzo del tipo `http://127.0.0.1:6080/?t=<token>`.
+The script:
+1. picks the monitor that has focus (or the one set in `OUTPUT`),
+2. starts `wayvnc` on `127.0.0.1:5900` with the Italian keyboard layout,
+3. starts the web bridge and prints an address like `http://127.0.0.1:6080/?t=<token>`.
 
-Apri quell'indirizzo in Chrome. In alto vedi "connesso" e sotto il desktop.
+Open that address in Chrome. At the top you'll see the connection status ("connesso" when connected) and the desktop below it.
 
-Per fermare tutto premi `Ctrl+C` nel terminale: `wayvnc` viene chiuso insieme al ponte.
+To stop everything press `Ctrl+C` in the terminal: `wayvnc` is closed together with the bridge.
 
-### Variabili d'ambiente
+> The page and the script messages are currently in Italian. Button labels are given below with their Italian text and an English translation.
 
-| Variabile | Default | Cosa fa |
+### Environment variables
+
+| Variable | Default | What it does |
 |---|---|---|
-| `OUTPUT` | monitor con il focus | Nome del monitor da condividere (es. `eDP-1`, `HDMI-A-1`). Elenco con `hyprctl monitors`. |
-| `KBD_LAYOUT` | `it` | Layout tastiera usato da `wayvnc` per i caratteri digitati (es. `us`, `de`, `fr`). Serve perché le lettere accentate escano giuste. |
-| `PORT` | `6080` | Porta del ponte web. |
-| `VNC_PORT` | `5900` | Porta del server VNC a cui il ponte si collega. |
-| `TOKEN` | casuale a ogni avvio | Token di accesso. Se lo fissi tu, tienilo segreto. |
+| `OUTPUT` | monitor with focus | Name of the monitor to share (e.g. `eDP-1`, `HDMI-A-1`). List them with `hyprctl monitors`. |
+| `KBD_LAYOUT` | `it` | Keyboard layout `wayvnc` uses for typed characters (e.g. `us`, `de`, `fr`). Needed so accented letters come out right. |
+| `PORT` | `6080` | Port of the web bridge. |
+| `VNC_PORT` | `5900` | Port of the VNC server the bridge connects to. |
+| `TOKEN` | random on every start | Access token. If you set it yourself, keep it secret. |
 
-Esempio:
+Example:
 
 ```bash
 OUTPUT=HDMI-A-1 KBD_LAYOUT=us ./run.sh
 ```
 
-### Senza Hyprland o senza wayvnc
+### Without Hyprland or without wayvnc
 
-Avvia a mano un server VNC su `127.0.0.1:5900`, poi solo il ponte:
+Start a VNC server by hand on `127.0.0.1:5900`, then just the bridge:
 
 ```bash
-# esempio X11
+# X11 example
 x11vnc -localhost -rfbport 5900 -nopw -display :0 &
 node server.mjs
 ```
 
-Con Sway o altri wlroots basta `OUTPUT=NOME ./run.sh`, a patto che `hyprctl` non serva: se non c'è, `OUTPUT` salta la sua chiamata.
+On Sway or other wlroots compositors `OUTPUT=NAME ./run.sh` is enough, as long as `hyprctl` isn't needed: when `OUTPUT` is set, the `hyprctl` call is skipped.
 
-## Come si usa con Claude in Chrome
+## Using it with Claude in Chrome
 
-1. Apri l'indirizzo stampato da `run.sh` in una scheda di Chrome.
-2. Tieni quella scheda **visibile e in primo piano**: Chrome non aggiorna le schede in background.
-3. Chiedi a Claude in Chrome di lavorare in quella scheda, per esempio: *«Nella scheda Desktop apri il file manager e crea una cartella "Foto" sul Desktop»*.
+1. Open the address printed by `run.sh` in a Chrome tab.
+2. Keep that tab **visible and in the foreground**: Chrome doesn't refresh background tabs.
+3. Ask Claude in Chrome to work in that tab, for example: *"In the Desktop tab, open the file manager and create a folder called Photos on the Desktop."*
 
-**Consiglio:** metti la scheda su un **altro monitor o workspace** rispetto a quello condiviso. Se la scheda mostra il monitor su cui si trova, Claude vede lo schermo dentro lo schermo.
+**Tip:** put the tab on a **different monitor or workspace** from the one you share. If the tab shows the monitor it sits on, Claude sees the screen inside the screen.
 
-### La barra in alto
+### The top bar
 
-La barra sopra il desktop esiste per quello che il canvas VNC non riceve bene da un browser pilotato in automatico.
+The bar above the desktop exists for what the VNC canvas doesn't receive well from an automated browser.
 
-- **Campo testo + Invio / "Invia testo":** digita il testo sul desktop, lettere accentate comprese (`è`, `à`, `ù`...).
-- **Ctrl, Alt, Shift, Super:** un clic tiene il tasto premuto sul desktop, un secondo clic lo rilascia ("Rilascia" li lascia andare tutti). Servono per Ctrl+clic, Shift+clic e simili.
-- **Scorciatoie pronte:** Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+Z, Ctrl+S, Alt+Tab, più Invio, Esc, Tab, ⌫, Canc e le frecce.
-- **Campo combo:** qualsiasi scorciatoia, per esempio `ctrl+shift+t` o `alt+f4`, poi Invio. Accetta `ctrl`, `alt`, `shift`, `super`, i tasti con nome (`enter`, `esc`, `tab`, `backspace`, `delete`, `home`, `end`, `pageup`, `pagedown`, frecce, `f1`–`f12`) e singoli caratteri.
-- **Modificatori mancanti:** se un evento arriva con Ctrl/Alt/Shift attivi ma senza il loro tasto premuto (succede con i browser pilotati da remoto), la pagina li aggiunge prima del tasto e li toglie dopo.
+- **Text field + Enter / "Invia testo" (Send text):** types the text on the desktop, accented letters included (`è`, `à`, `ù`...).
+- **Ctrl, Alt, Shift, Super:** one click holds the key down on the desktop, a second click releases it ("Rilascia" / Release lets go of all of them). Use them for Ctrl+click, Shift+click and the like.
+- **Ready-made shortcuts:** Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+Z, Ctrl+S, Alt+Tab, plus "Invio" (Enter), Esc, Tab, ⌫, "Canc" (Delete) and the arrow keys.
+- **Combo field:** any shortcut, for example `ctrl+shift+t` or `alt+f4`, then Enter. It accepts `ctrl`, `alt`, `shift`, `super`, named keys (`enter`, `esc`, `tab`, `backspace`, `delete`, `home`, `end`, `pageup`, `pagedown`, arrows, `f1`–`f12`) and single characters.
+- **Missing modifiers:** if an event arrives with Ctrl/Alt/Shift active but without their own key press (this happens with remotely driven browsers), the page adds them before the key and releases them afterwards.
 
-## Sicurezza
+## Security
 
-Questo progetto dà il **controllo completo del tuo desktop** a chi apre la pagina. Leggi con attenzione.
+This project gives **full control of your desktop** to whoever opens the page. Read this carefully.
 
-- Il ponte ascolta **solo su `127.0.0.1`**, non è raggiungibile dalla rete.
-- Ogni richiesta richiede il **token** (nell'indirizzo al primo accesso, poi in un cookie) e un **header Host** locale. Questo impedisce che altre pagine web, o attacchi DNS rebinding, si colleghino al desktop.
-- Il token è generato a caso a ogni avvio. **Non condividere l'indirizzo completo** e non incollarlo in chat, issue o screenshot.
-- `wayvnc` è avviato **senza password VNC**, in ascolto su localhost. Qualunque programma sul tuo PC può collegarsi alla porta 5900 direttamente. Su un computer con altri utenti o software non fidato, non usarlo così: aggiungi un'autenticazione a `wayvnc` (vedi la sua documentazione) o restringi l'accesso alla porta.
-- Non esporre le porte 5900 e 6080 su Internet e non farle passare da tunnel o port forwarding senza un'autenticazione forte.
-- Claude, come qualsiasi agente, può sbagliare e il testo sullo schermo può contenere istruzioni ingannevoli. Non lasciare aperti password manager, banca o altre sessioni sensibili mentre lo usi, e controlla cosa sta facendo.
+- The bridge listens **only on `127.0.0.1`**, it is not reachable from the network.
+- Every request needs the **token** (in the address on first access, then in a cookie) and a local **Host header**. This stops other web pages, or DNS rebinding attacks, from connecting to the desktop.
+- The token is random on every start. **Don't share the full address** and don't paste it in chats, issues or screenshots.
+- `wayvnc` is started **without a VNC password**, listening on localhost. Any program on your PC can connect to port 5900 directly. On a computer with other users or untrusted software, don't use it like this: add authentication to `wayvnc` (see its documentation) or restrict access to the port.
+- Don't expose ports 5900 and 6080 to the Internet, and don't pass them through tunnels or port forwarding without strong authentication.
+- Claude, like any agent, can make mistakes, and text on screen can contain misleading instructions. Don't leave password managers, banking or other sensitive sessions open while you use it, and watch what it is doing.
 
-## Risoluzione dei problemi
+## Troubleshooting
 
-| Sintomo | Cosa provare |
+| Symptom | What to try |
 |---|---|
-| `Installa wayvnc` | `sudo pacman -S wayvnc` (o il pacchetto della tua distribuzione). |
-| In alto compare "disconnesso (wayvnc attivo?)" | `wayvnc` non è partito o è sceso. Guarda gli errori nel terminale di `run.sh`. Controlla che la porta 5900 sia libera. |
-| Errore sull'opzione `--keyboard` | Alcune versioni di `wayvnc` usano un'opzione diversa. Controlla `wayvnc --help` e adatta la riga in `run.sh`. |
-| "forbidden" / 403 nel browser | Manca il token o l'indirizzo è diverso: usa quello stampato all'avvio, con `127.0.0.1` o `localhost` e la stessa porta. |
-| Le lettere accentate escono sbagliate | Controlla `KBD_LAYOUT` (default `it`). Prova a usare il campo "Invia testo". |
-| Le scorciatoie con Ctrl/Alt/Shift non arrivano | Usa i pulsanti Ctrl/Alt/Shift della barra oppure il campo combo. |
-| Il desktop non si aggiorna | La scheda è in background: portala in primo piano. |
-| Vedi il monitor sbagliato | Passa `OUTPUT=NOME`. I nomi si vedono con `hyprctl monitors`. |
-| Clic spostati rispetto al puntatore | Succede con scale frazionarie in rari casi: prova a ricaricare la pagina e controlla che il monitor sia quello giusto. |
+| `Installa wayvnc` (install wayvnc) | `sudo pacman -S wayvnc` (or your distribution's package). |
+| "disconnesso (wayvnc attivo?)" appears at the top | `wayvnc` didn't start or went down. Look at the errors in the `run.sh` terminal. Check that port 5900 is free. |
+| Error about the `--keyboard` option | Some `wayvnc` versions use a different option. Check `wayvnc --help` and adapt the line in `run.sh`. |
+| "forbidden" / 403 in the browser | The token is missing or the address differs: use the one printed at startup, with `127.0.0.1` or `localhost` and the same port. |
+| Accented letters come out wrong | Check `KBD_LAYOUT` (default `it`). Try the "Invia testo" field. |
+| Ctrl/Alt/Shift shortcuts don't arrive | Use the Ctrl/Alt/Shift buttons in the bar, or the combo field. |
+| The desktop doesn't update | The tab is in the background: bring it to the foreground. |
+| You see the wrong monitor | Pass `OUTPUT=NAME`. Names are shown by `hyprctl monitors`. |
+| Clicks land away from the pointer | Rarely happens with fractional scaling: reload the page and check that the monitor is the right one. |
 
-## Struttura del progetto
+## Project layout
 
 ```
-vnc-bridge/
-├── run.sh         avvia wayvnc + ponte (specifico per Hyprland/wayvnc)
-├── server.mjs     server HTTP + ponte WebSocket → TCP VNC (token, controllo Host)
-├── index.html     pagina con noVNC e la barra di tasti
-├── package.json   dipendenze: @novnc/novnc, ws
-├── LICENSE        licenza MIT
-└── README.md
+claude-desktop-bridge/
+├── run.sh         starts wayvnc + the bridge (Hyprland/wayvnc specific)
+├── server.mjs     HTTP server + WebSocket → TCP VNC bridge (token, Host check)
+├── index.html     page with noVNC and the key bar
+├── package.json   dependencies: @novnc/novnc, ws
+├── LICENSE        MIT license
+├── README.md      this file (English)
+└── README.it.md   Italian version
 ```
 
-## Limiti
+## Limitations
 
-- Più lento di un agente che usa direttamente l'API, perché tutto passa da un flusso video VNC.
-- Funziona solo finché la scheda è in primo piano.
-- Non è stato verificato su altro che Hyprland. Se lo provi altrove, apri una issue con l'esito.
-- Questo progetto non è prodotto né approvato da Anthropic.
+- Slower than an agent that uses the API directly, because everything goes through a VNC video stream.
+- Only works while the tab is in the foreground.
+- Not verified on anything other than Hyprland. If you try it elsewhere, open an issue with the result.
+- This project is not made or endorsed by Anthropic.
 
-## Licenza
+## License
 
-Il codice di questo progetto è rilasciato con licenza **MIT**: vedi il file [LICENSE](LICENSE). Puoi usarlo, modificarlo e ridistribuirlo liberamente, anche per scopi commerciali, mantenendo l'avviso di copyright.
+The code in this project is released under the **MIT** license: see the [LICENSE](LICENSE) file. You may use, modify and redistribute it freely, including for commercial purposes, as long as you keep the copyright notice.
 
-Le dipendenze hanno le loro licenze: [noVNC](https://github.com/novnc/noVNC) è sotto MPL-2.0 e [`ws`](https://github.com/websockets/ws) sotto MIT.
+Dependencies have their own licenses: [noVNC](https://github.com/novnc/noVNC) is MPL-2.0 and [`ws`](https://github.com/websockets/ws) is MIT.
