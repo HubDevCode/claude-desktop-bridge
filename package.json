@@ -1,0 +1,2 @@
+{ "name": "desktop-in-a-tab", "version": "1.0.0", "type": "module", "private": true,
+  "dependencies": { "@novnc/novnc": "^1.7.0", "ws": "^8.18.0" } }

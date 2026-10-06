@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Desktop</title>
+<style>
+  html, body { margin:0; height:100%; background:#111; color:#eee; font:13px system-ui, sans-serif; overflow:hidden; }
+  #bars { background:#222; padding:4px 8px; display:flex; flex-direction:column; gap:4px; }
+  .bar { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+  .bar input { flex:1; min-width:120px; background:#111; color:#eee; border:1px solid #444; border-radius:5px; padding:3px 8px; font:inherit; }
+  button { background:#333; color:#eee; border:1px solid #555; border-radius:5px; padding:3px 9px; cursor:pointer; font:inherit; }
+  button.mod.on { background:#c96442; border-color:#c96442; color:#fff; }
+  #st { color:#9a9; min-width:80px; }
+  #screen { height:calc(100% - var(--bars, 70px)); }
+</style>
+</head>
+<body>
+<div id="bars">
+  <div class="bar">
+    <span id="st">connessione…</span>
+    <input id="txt" placeholder="Testo da digitare sul desktop (anche accentate) + Invio" autocomplete="off">
+    <button id="send">Invia testo</button>
+  </div>
+  <div class="bar">
+    <button class="mod" data-mod="ctrl">Ctrl</button><button class="mod" data-mod="alt">Alt</button>
+    <button class="mod" data-mod="shift">Shift</button><button class="mod" data-mod="super">Super</button>
+    <button id="rel">Rilascia</button>
+    <span style="color:#777">|</span>
+    <button data-combo="ctrl+a">Ctrl+A</button><button data-combo="ctrl+c">Ctrl+C</button>
+    <button data-combo="ctrl+v">Ctrl+V</button><button data-combo="ctrl+x">Ctrl+X</button>
+    <button data-combo="ctrl+z">Ctrl+Z</button><button data-combo="ctrl+s">Ctrl+S</button>
+    <button data-combo="alt+tab">Alt+Tab</button>
+    <span style="color:#777">|</span>
+    <button data-combo="enter">Invio</button><button data-combo="esc">Esc</button><button data-combo="tab">Tab</button>
+    <button data-combo="backspace">⌫</button><button data-combo="delete">Canc</button>
+    <button data-combo="left">←</button><button data-combo="up">↑</button><button data-combo="down">↓</button><button data-combo="right">→</button>
+    <input id="combo" style="max-width:190px" placeholder="combo es. ctrl+shift+t + Invio" autocomplete="off">
+  </div>
+</div>
+<div id="screen"></div>
+<script type="module">
+import RFB from '/novnc/core/rfb.js';
+const $ = (id) => document.getElementById(id);
+const st = $('st');
+const fit = () => document.documentElement.style.setProperty('--bars', $('bars').offsetHeight + 'px');
+fit(); addEventListener('resize', fit);
+
+const rfb = new RFB($('screen'), `ws://${location.host}/websockify`);
+rfb.scaleViewport = true;
+rfb.resizeSession = false;
+rfb.focusOnClick = true;
+rfb.addEventListener('connect', () => { st.textContent = 'connesso'; });
+rfb.addEventListener('disconnect', () => { st.textContent = 'disconnesso (wayvnc attivo?)'; st.style.color = '#e88'; });
+
+// ── keysym ──
+const MOD = { ctrl: 0xffe3, alt: 0xffe9, shift: 0xffe1, super: 0xffeb };
+const ALIAS = { control: 'ctrl', meta: 'super', win: 'super', cmd: 'super', logo: 'super' };
+const NAMED = { enter: 0xff0d, return: 0xff0d, esc: 0xff1b, escape: 0xff1b, tab: 0xff09, backspace: 0xff08, delete: 0xffff, del: 0xffff,
+  home: 0xff50, left: 0xff51, up: 0xff52, right: 0xff53, down: 0xff54, pageup: 0xff55, pagedown: 0xff56, end: 0xff57, space: 0x20, insert: 0xff63 };
+const charSym = (ch) => { const cp = ch.codePointAt(0); return cp < 0x100 ? cp : 0x01000000 + cp; };
+function nameSym(n) {
+  const k = n.toLowerCase();
+  if (NAMED[k]) return NAMED[k];
+  if (/^f([1-9]|1[0-2])$/.test(k)) return 0xffbe + Number(k.slice(1)) - 1;
+  return [...n].length === 1 ? charSym(n) : null;
+}
+const tap = (sym) => { rfb.sendKey(sym, null, true); rfb.sendKey(sym, null, false); };
+
+// ── modificatori "bloccati" (restano premuti sul desktop finché li rilasci) ──
+const held = new Set();
+const paint = () => document.querySelectorAll('.mod').forEach((b) => b.classList.toggle('on', held.has(b.dataset.mod)));
+function setMod(m, on) {
+  if (on === held.has(m)) return;
+  rfb.sendKey(MOD[m], null, on);
+  on ? held.add(m) : held.delete(m);
+  paint();
+}
+document.querySelectorAll('.mod').forEach((b) => (b.onclick = () => setMod(b.dataset.mod, !held.has(b.dataset.mod))));
+$('rel').onclick = () => [...held].forEach((m) => setMod(m, false));
+
+// ── scorciatoie: "ctrl+shift+t" ──
+function combo(str) {
+  const parts = str.split('+').map((p) => p.trim()).filter(Boolean);
+  const key = parts.pop();
+  const mods = parts.map((p) => ALIAS[p.toLowerCase()] || p.toLowerCase()).filter((m) => MOD[m]);
+  const sym = key && nameSym(key);
+  if (!sym) return false;
+  const temp = mods.filter((m) => !held.has(m));
+  temp.forEach((m) => rfb.sendKey(MOD[m], null, true));
+  tap(sym);
+  temp.reverse().forEach((m) => rfb.sendKey(MOD[m], null, false));
+  return true;
+}
+document.querySelectorAll('[data-combo]').forEach((b) => (b.onclick = () => combo(b.dataset.combo)));
+$('combo').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  if (combo($('combo').value)) $('combo').value = '';
+});
+
+// ── testo ──
+function typeText(s) {
+  for (const ch of s) ch === '\n' ? tap(0xff0d) : tap(charSym(ch));
+}
+const doSend = () => { if ($('txt').value) typeText($('txt').value); $('txt').value = ''; };
+$('send').onclick = doSend;
+$('txt').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSend(); } });
+
+// ── tastiera fisica / automatica: i modificatori arrivano anche quando mancano i loro eventi ──
+// Chi pilota il browser da remoto spesso manda "Ctrl+C" come un solo evento con ctrlKey=true,
+// senza il keydown di Control: li aggiungiamo noi prima del tasto e li togliamo dopo.
+const FLAGS = { ctrl: 'ctrlKey', alt: 'altKey', shift: 'shiftKey', super: 'metaKey' };
+const REAL = { Control: 'ctrl', Alt: 'alt', Shift: 'shift', Meta: 'super' };
+const seen = new Set();   // modificatori il cui keydown è arrivato davvero
+let synth = [];           // modificatori simulati per il tasto in corso
+function onlyOnScreen(e) { return e.target.closest('#screen') || e.target === document.body; }
+document.addEventListener('keydown', (e) => {
+  if (!onlyOnScreen(e)) return;
+  if (REAL[e.key]) { seen.add(REAL[e.key]); return; }
+  synth = Object.keys(FLAGS).filter((m) => e[FLAGS[m]] && !seen.has(m) && !held.has(m));
+  synth.forEach((m) => rfb.sendKey(MOD[m], null, true));
+}, true);
+document.addEventListener('keyup', (e) => {
+  if (REAL[e.key]) { seen.delete(REAL[e.key]); return; }
+  if (!onlyOnScreen(e)) return;
+  // noVNC invia il keyup del tasto dopo di noi (fase bubbling): rilasciamo i modificatori simulati dopo di lui
+  const s = synth; synth = [];
+  setTimeout(() => s.forEach((m) => rfb.sendKey(MOD[m], null, false)), 0);
+}, true);
+</script>
+</body>
+</html>
